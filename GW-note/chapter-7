@@ -1,0 +1,147 @@
+1) lab probes start
+2) source /usr/local/etc/ocp4.config
+3) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+4) oc new-project ${RHT_OCP4_DEV_USER}-probes
+5) oc new-app --name probes --build-env npm_config_registry=http://${RHT_OCP4_NEXUS_SERVER}/repository/nodejs nodejs:10~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps --context-dir probes
+6) oc logs -f bc/probes
+7) oc get pods
+    7.1> probes-1-rtg79
+8) oc expose svc probes
+    8.1> oc get route/probes -o jsonpath='{.spec.host}{"\n"}'
+    8.2> probes-garywang-tw-probes.apps.ocp-ap3.prod.nextcle.com
+9) curl -i probes-${RHT_OCP4_DEV_USER}-probes.${RHT_OCP4_WILDCARD_DOMAIN}/ready
+10) curl -i probes-${RHT_OCP4_DEV_USER}-probes.${RHT_OCP4_WILDCARD_DOMAIN}/healthz
+11) curl -i probes-${RHT_OCP4_DEV_USER}-probes.${RHT_OCP4_WILDCARD_DOMAIN}
+12) oc set probe dc/probes --liveness --get-url=http://:8080/healthz --initial-delay-seconds=2 --timeout-seconds=2
+13) oc set probe dc/probes --readiness --get-url=http://:8080/ready --initial-delay-seconds=2 --timeout-seconds=2
+14) oc describe dc/probes
+15) oc get pods
+    15.1> probes-3-9dnbz
+16) oc logs -f dc/probes
+    17.1> ~/DO288/labs/probes/kill.sh
+18) oc get pods
+    18.1> probes-3-9dnbz
+19) oc describe pod/probes-3-9dnbz
+20) oc delete project ${RHT_OCP4_DEV_USER}-probes
+21) lab probes finish
+
+/**************************************************/
+
+31) lab strategy start
+32) source /usr/local/etc/ocp4.config
+33) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+34) oc new-project ${RHT_OCP4_DEV_USER}-strategy
+35) oc new-app --name mysql -e MYSQL_USER=test -e MYSQL_PASSWORD=redhat -e MYSQL_DATABASE=testdb --docker-image registry.access.redhat.com/rhscl/mysql-57-rhel7
+36) oc get pod
+    36.1> mysql-1-cqhg5
+37) oc get dc/mysql -o jsonpath='{.spec.strategy.type}{"\n"}'
+38) oc set triggers dc/mysql --from-config --remove
+39) oc patch dc/mysql --patch '{"spec":{"strategy":{"type":"Recreate"}}}'
+40) oc patch dc/mysql --type=json -p='[{"op":"remove", "path": "/spec/strategy/rollingParams"}]'
+41) cat ~/DO288/labs/strategy/users.sql
+    41.1> cat ~/DO288/labs/strategy/import.sh
+    41.2> cat ~/DO288/labs/strategy/post-hook.sh
+42) ~/DO288/labs/strategy/post-hook.sh
+43) oc describe dc/mysql | grep -A 3 'Strategy:'
+44) oc rollout latest dc/mysql
+45) watch -n 2 oc get pods
+46) oc logs -f mysql-2-hook-post
+47) oc set env dc/mysql HOOK_RETRIES=5
+48) oc rollout latest dc/mysql
+49) watch -n 2 oc get pods
+    49.1> mysql-3-dkwh2
+50) oc logs -f mysql-3-hook-post
+51) oc rsh mysql-3-dkwh2
+    51.1> mysql -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE
+    51.2> select * from users;
+    51.3> exit
+    51.4> exit
+52) oc delete project ${RHT_OCP4_DEV_USER}-strategy
+53) lab strategy finish
+
+/**************************************************/
+
+61) lab app-deploy start
+62) cd DO288-apps
+    62.1> git checkout master
+    62.2> git checkout -b app-deploy
+    62.3> git push -u origin app-deploy
+    62.4> cd
+63) cd ~/DO288-apps/quip/src/main/java/com/redhat/training/example
+    63.1> vi Quip.java
+    63.2> cd
+64) source /usr/local/etc/ocp4.config
+65) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+66) oc new-project ${RHT_OCP4_DEV_USER}-app-deploy
+67) oc new-app --name quip --build-env MAVEN_MIRROR_URL=http://${RHT_OCP4_NEXUS_SERVER}/repository/java -i redhat-openjdk18-openshift:1.5 https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#app-deploy --context-dir quip
+    67.1> oc logs -f bc/quip
+68) oc get pods
+    68.1> quip-1-n7w7g
+69) oc logs dc/quip
+70) oc describe svc/quip
+71) oc expose svc quip
+72) oc get route/quip -o jsonpath='{.spec.host}{"\n"}'
+    72.1> quip-garywang-tw-app-deploy.apps.ocp-ap3.prod.nextcle.com
+73) curl http://quip-${RHT_OCP4_DEV_USER}-app-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+74) oc set probe dc/quip --liveness --get-url=http://:8080/ready --initial-delay-seconds=30 --timeout-seconds=2
+75) oc set probe dc/quip --readiness --get-url=http://:8080/ready --initial-delay-seconds=30 --timeout-seconds=2
+76) oc describe dc/quip
+77) oc get pods
+    77.1> quip-3-j65rj
+78) oc describe pod quip-3-j65rj | grep http-get
+79) curl http://quip-${RHT_OCP4_DEV_USER}-app-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+80) cat ~/DO288/labs/app-deploy/app-change.sh
+81) ~/DO288/labs/app-deploy/app-change.sh
+82) oc start-build quip -F
+83) oc get pods
+    83.1> quip-4-z479g
+84) curl http://quip-${RHT_OCP4_DEV_USER}-app-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+85) oc rollback dc/quip
+    85.1> watch oc get pods
+86) curl http://quip-${RHT_OCP4_DEV_USER}-app-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+87) oc delete project ${RHT_OCP4_DEV_USER}-app-deploy
+88) lab app-deploy finish
+
+/**************************************************/
+
+91) lab manage-deploy start
+92) cd DO288-apps
+    92.1> git checkout master
+    92.2> git checkout -b manage-deploy
+    92.3> git push -u origin manage-deploy
+93) source /usr/local/etc/ocp4.config
+94) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+95) oc new-project ${RHT_OCP4_DEV_USER}-manage-deploy
+96) oc new-app --name scale php:7.0~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#manage-deploy --context-dir php-scale
+    96.1> oc logs -f bc/scale
+97) oc get pods
+    97.1> scale-1-svv75
+98) oc expose svc scale
+99) oc get route scale -o jsonpath='{.spec.host}{"\n"}'
+    99.1> scale-garywang-tw-manage-deploy.apps.ocp-ap3.prod.nextcle.com
+100) curl http://scale-${RHT_OCP4_DEV_USER}-manage-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+101) oc describe dc/scale | grep 'Strategy'
+102) URL : https://console-openshift-console.apps.ocp-ap3.prod.nextcle.com
+103) oc get pods
+    103.1> scale-1-svv75
+    103.2> scale-1-254z8
+104) vi ~/DO288-apps/php-scale/index.php
+    104.1> git commit -a -m "Updated app to version 2"
+    104.2> git push
+105) URL : https://console-openshift-console.apps.ocp-ap3.prod.nextcle.com
+106) watch oc get pods
+    106.1> scale-2-4c7rz
+    106.2> scale-2-dmsck
+107) curl http://scale-${RHT_OCP4_DEV_USER}-manage-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+108) oc rollback dc/scale
+109) watch oc get pods
+    109.1> scale-3-hzqkj
+    109.2> scale-3-zzhb9
+110) curl http://scale-${RHT_OCP4_DEV_USER}-manage-deploy.${RHT_OCP4_WILDCARD_DOMAIN}
+111) lab manage-deploy grade
+112) oc delete project ${RHT_OCP4_DEV_USER}-manage-deploy
+113) lab manage-deploy finish
+ 
+
+
+

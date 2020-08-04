@@ -1,0 +1,146 @@
+1) lab s2i-scripts start
+2) sudo podman run --name test -it rhscl/httpd-24-rhel7 bash
+    2.1> cat /usr/libexec/s2i/assemble
+    2.2> cat /usr/libexec/s2i/run
+    2.3> cat /usr/libexec/s2i/usage
+    2.4> exit
+3) cd DO288-apps
+    3.1> git checkout master
+    3.2> cat ~/DO288-apps/s2i-scripts/index.html
+4) cd ~/DO288-apps/s2i-scripts/.s2i/bin
+    4.1> cat assemble
+    4.2> cat run
+5) source /usr/local/etc/ocp4.config
+6) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+7) oc new-project ${RHT_OCP4_DEV_USER}-s2i-scripts
+8) oc new-app --name bonjour httpd:2.4~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps --context-dir s2i-scripts
+9) oc logs -f bc/bonjour
+10) oc get pods
+    10.1> bonjour-1-hflrj
+11) oc expose svc bonjour
+12) oc get route
+    12.1> bonjour-garywang-tw-s2i-scripts.apps.ocp-ap3.prod.nextcle.com
+13) curl http://bonjour-${RHT_OCP4_DEV_USER}-s2i-scripts.${RHT_OCP4_WILDCARD_DOMAIN}
+14) curl http://bonjour-${RHT_OCP4_DEV_USER}-s2i-scripts.${RHT_OCP4_WILDCARD_DOMAIN}/info.html
+15) oc logs bonjour-1-hflrj
+16) oc delete project ${RHT_OCP4_DEV_USER}-s2i-scripts
+17) sudo podman rm test
+18) lab s2i-scripts finish
+
+/**************************************************/
+
+21) lab apache-s2i start
+22) s2i version
+23) s2i create s2i-do288-httpd s2i-do288-httpd
+    23.1> tree -a s2i-do288-httpd
+    23.2> cat ~/DO288/labs/apache-s2i/Dockerfile
+    23.3> cp ~/DO288/labs/apache-s2i/Dockerfile ~/s2i-do288-httpd/
+    23.4> cp -Rv ~/DO288/labs/apache-s2i/s2i ~/s2i-do288-httpd/
+    23.5> rm -f ~/s2i-do288-httpd/s2i/bin/save-artifacts
+24) cd s2i-do288-httpd
+    24.1> sudo podman build -t s2i-do288-httpd .
+    24.2> sudo podman images
+25) cat ~/DO288/labs/apache-s2i/index.html
+    25.1> cp ~/DO288/labs/apache-s2i/index.html ~/s2i-do288-httpd/test/test-app/
+    25.2> mkdir /home/student/s2i-sample-app
+    25.3> s2i build test/test-app/ s2i-do288-httpd s2i-sample-app --as-dockerfile ~/s2i-sample-app/Dockerfile
+26) cd ~/s2i-sample-app
+    26.1> tree .
+    26.2> cat Dockerfile
+    26.3> sudo podman build --format docker -t s2i-sample-app .
+    26.4> sudo podman images
+    26.5> sudo podman run --name test -u 1234 -p 8080:8080 -d s2i-sample-app
+    26.6> sudo podman ps
+    26.7> curl http://localhost:8080
+    26.8> sudo podman stop test
+27) source /usr/local/etc/ocp4.config
+28) sudo podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+29) sudo skopeo copy containers-storage:localhost/s2i-do288-httpd docker://quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-httpd
+30) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+31) oc new-project ${RHT_OCP4_DEV_USER}-apache-s2i
+32) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+33) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type=kubernetes.io/dockerconfigjson
+34) oc secrets link builder quayio
+35) oc import-image s2i-do288-httpd --from quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-httpd --confirm
+36) oc get is
+37) oc new-app --name hello-s2i s2i-do288-httpd~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps --context-dir=html-helloworld
+    37.1> oc logs -f bc/hello-s2i
+38) oc get pod
+    38.1> hello-s2i-1-clf22
+39) oc expose svc hello-s2i
+40) oc get route/hello-s2i -o jsonpath='{.spec.host}{"\n"}'
+    40.1> hello-s2i-garywang-tw-apache-s2i.apps.ocp-ap3.prod.nextcle.com
+41) curl http://hello-s2i-${RHT_OCP4_DEV_USER}-apache-s2i.${RHT_OCP4_WILDCARD_DOMAIN}
+42) oc delete project ${RHT_OCP4_DEV_USER}-apache-s2i
+43) sudo podman rm test
+44) sudo podman rmi -f localhost/s2i-sample-app localhost/s2i-do288-httpd registry.access.redhat.com/ubi8/ubi:8.0
+45) sudo skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-httpd:latest
+46) lab apache-s2i finish
+
+/**************************************************/
+
+51) lab custom-s2i start
+52) vi ~/DO288/labs/custom-s2i/Dockerfile
+    52.1> COPY ./s2i/bin/ /usr/libexec/s2i
+53) cd ~/DO288/labs/custom-s2i
+    53.1> sudo podman build -t s2i-do288-go .
+    53.2> sudo podman images
+54) mkdir /home/student/s2i-go-app
+    54.1> s2i build test/test-app/ s2i-do288-go s2i-go-app --as-dockerfile /home/student/s2i-go-app/Dockerfile
+55) cd ~/s2i-go-app
+    55.1> sudo podman build -t s2i-go-app .
+    55.2> sudo podman images
+    55.3> sudo podman run --name go-test -u 1234 -p 8080:8080 -d s2i-go-app
+    55.4> sudo podman ps
+    55.5> curl http://localhost:8080/user1
+    55.6> sudo podman stop go-test
+    55.7> cd
+56) source /usr/local/etc/ocp4.config
+57) sudo podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+58) sudo skopeo copy containers-storage:localhost/s2i-do288-go docker://quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-go
+59) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+60) oc new-project ${RHT_OCP4_DEV_USER}-custom-s2i
+61) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+62) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type=kubernetes.io/dockerconfigjson
+63) oc secrets link builder quayio
+64) oc import-image s2i-do288-go --from quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-go --confirm
+65) oc get is
+66) cd DO288-apps
+    66.1> git checkout master
+    66.2> git checkout -b custom-s2i
+    66.3> git push -u origin custom-s2i
+    66.4> cd
+67) oc new-app --name greet s2i-do288-go~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#custom-s2i --context-dir=go-hello
+68) oc logs -f bc/greet
+69) oc get pods
+    69.1> greet-1-l8wlf
+70) oc expose svc greet
+71) oc get route/greet -o jsonpath='{.spec.host}{"\n"}'
+    71.1> greet-garywang-tw-custom-s2i.apps.ocp-ap3.prod.nextcle.com
+72) curl http://greet-${RHT_OCP4_DEV_USER}-custom-s2i.${RHT_OCP4_WILDCARD_DOMAIN}/user1
+73) mkdir -p ~/DO288-apps/go-hello/.s2i/bin
+    73.1> cp ~/DO288/labs/custom-s2i/s2i/bin/run ~/DO288-apps/go-hello/.s2i/bin/
+    73.2> vi ~/DO288-apps/go-hello/.s2i/bin/run
+    73.3> cd ~/DO288-apps/go-hello
+    73.4> git add .
+    73.5> git commit -m "Customized run script"
+    73.6> git push
+    73.7> cd
+74) oc start-build greet
+75) oc logs -f bc/greet
+76) oc get pods
+    76.1> greet-2-s6t44
+77) curl http://greet-${RHT_OCP4_DEV_USER}-custom-s2i.${RHT_OCP4_WILDCARD_DOMAIN}/user1
+78) lab custom-s2i grade
+79) oc delete project ${RHT_OCP4_DEV_USER}-custom-s2i
+80) sudo podman rm go-test
+81) sudo podman rmi -f localhost/s2i-go-app localhost/s2i-do288-go registry.access.redhat.com/ubi8/ubi:8.0
+82) sudo skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/s2i-do288-go:latest
+83) lab custom-s2i finish
+
+
+
+
+
+
+

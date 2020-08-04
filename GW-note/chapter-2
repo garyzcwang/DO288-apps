@@ -1,0 +1,116 @@
+1) lab container-build start
+2) vi ~/DO288/labs/container-build/httpd-parent/Dockerfile
+3) source /usr/local/etc/ocp4.config
+4) cd DO288-apps
+    4.1> git checkout master
+    4.2> git checkout -b container-build
+    4.3> git push -u origin container-build
+5) cat ~/DO288-apps/container-build/Dockerfile
+6) cat ~/DO288-apps/container-build/src/index.html
+7) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+8) oc new-project ${RHT_OCP4_DEV_USER}-container-build
+9) oc new-app --name hola https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#container-build --context-dir container-build
+10) oc logs -f bc/hola
+11) oc get pods
+    11.1> hola-1-vr7qv
+12) oc logs hola-1-vr7qv
+13) oc delete all -l app=hola
+14) vi ~/DO288-apps/container-build/Dockerfile
+    14.1> cd container-build
+    14.2> git commit -a -m "Changed Dockerfile to enable running as a random uid on OpenShift"
+    14.3> git push
+    14.4> cd
+15) oc new-app --name hola https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#container-build --context-dir container-build
+    15.1> oc logs -f bc/hola
+    15.2> oc get pods
+        15.2.1> hola-1-ct8f2
+16) oc expose svc/hola
+17) oc get route
+    17.1> curl http://hola-garywang-tw-container-build.apps.ocp-ap3.prod.nextcle.com
+    17.2> curl http://hola-${RHT_OCP4_DEV_USER}-container-build.${RHT_OCP4_WILDCARD_DOMAIN}
+18) oc delete project ${RHT_OCP4_DEV_USER}-container-build
+19) lab container-build finish
+
+/**************************************************/
+
+21) lab app-config start
+22) cd DO288-apps
+    22.1> git checkout master
+    22.2> git checkout -b app-config
+    22.3> git push -u origin app-config
+    22.4> vi ~/DO288-apps/app-config/app.js
+23) source /usr/local/etc/ocp4.config
+24) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+25) oc new-project ${RHT_OCP4_DEV_USER}-app-config
+26) oc new-app --name myapp --build-env npm_config_registry=http://${RHT_OCP4_NEXUS_SERVER}/repository/nodejs nodejs:10~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#app-config --context-dir app-config
+27) oc logs -f bc/myapp
+28) oc get pods
+    28.1> myapp-1-2dn5d
+29) oc expose svc myapp
+30) oc get route
+    30.1> curl http://myapp-garywang-tw-app-config.apps.ocp-ap3.prod.nextcle.com
+31) oc create configmap myappconf --from-literal APP_MSG="Test Message"
+32) oc describe cm/myappconf
+33) cat ~/DO288-apps/app-config/myapp.sec
+34) oc create secret generic myappfilesec --from-file /home/student/DO288-apps/app-config/myapp.sec
+35) oc get secret/myappfilesec -o json
+36) oc set env dc/myapp --from configmap/myappconf
+37) oc set volume dc/myapp --add -t secret -m /opt/app-root/secure --name myappsec-vol --secret-name myappfilesec
+38) oc status
+39) oc get pods
+    39.1> myapp-3-b2zht
+    39.2> oc rsh myapp-3-b2zht env | grep APP_MSG
+40) curl http://myapp-garywang-tw-app-config.apps.ocp-ap3.prod.nextcle.com
+41) oc edit cm/myappconf
+42) oc describe cm/myappconf
+43) oc rollout latest dc/myapp
+44) oc get pods
+    44.1> myapp-4-6dmtq
+45) curl http://myapp-${RHT_OCP4_DEV_USER}-app-config.${RHT_OCP4_WILDCARD_DOMAIN}
+46) oc delete project ${RHT_OCP4_DEV_USER}-app-config
+47) lab app-config finish
+
+/**************************************************/
+
+51) lab design-container start
+52) cd DO288-apps
+    52.1> git checkout master
+    52.2> git checkout -b design-container
+    52.3> git push -u origin design-container
+    52.4> vi ~/DO288-apps/hello-java/Dockerfile
+53) source /usr/local/etc/ocp4.config
+54) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+54) oc new-project ${RHT_OCP4_DEV_USER}-design-container
+55) oc new-app --name elvis https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#design-container --context-dir hello-java
+56) oc logs -f bc/elvis
+57) oc get pods
+    57.1> elvis-1-gn2th
+58) oc logs elvis-1-gn2th
+59) vi ~/DO288-apps/hello-java/Dockerfile
+    59.1> cd hello-java
+    59.2> git commit -a -m "Fixed Dockerfile to run with random user id on OpenShift"
+    59.3> git push
+    59.4> cd ~
+60) oc start-build elvis
+    60.1> oc logs -f bc/elvis
+61) oc get pods
+    61.1> elvis-2-6tr78
+62) oc logs elvis-2-6tr78
+63) oc expose svc/elvis
+64) oc get route
+    64.1> curl http://elvis-garywang-tw-design-container.apps.ocp-ap3.prod.nextcle.com/api/hello
+    64.2> curl http://elvis-${RHT_OCP4_DEV_USER}-design-container.${RHT_OCP4_WILDCARD_DOMAIN}/api/hello
+65) oc create cm appconfig --from-literal APP_MSG="Elvis lives"
+66) oc describe cm/appconfig
+67) oc set env dc/elvis --from cm/appconfig
+68) oc status
+69) oc get pods
+    69.1> elvis-3-7lspq
+70) oc rsh elvis-3-7lspq env | grep APP_MSG
+71) curl http://elvis-${RHT_OCP4_DEV_USER}-design-container.${RHT_OCP4_WILDCARD_DOMAIN}/api/hello
+72) lab design-container grade
+73) lab design-container finish
+
+
+
+

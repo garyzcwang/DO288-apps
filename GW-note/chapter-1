@@ -1,0 +1,128 @@
+1) lab-configure
+2) git clone https://github.com/garyzcwang/DO288-apps
+3) cd DO288-apps/
+4) git status
+5) head README.md
+6) cd
+
+/**************************************************/
+
+11) lab docker-build start
+12) cd DO288-apps/
+13) git checkout master
+14) git checkout -b docker-build
+15) git push -u origin docker-build
+16) cat ubi-echo/Dockerfile
+17) source /usr/local/etc/ocp4.config
+18) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+19) oc new-project ${RHT_OCP4_DEV_USER}-docker-build
+20) oc new-app --name echo https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#docker-build --context-dir ubi-echo
+21) oc logs -f bc/echo
+22) oc status
+23) oc get pod
+    23.1> echo-1-dpmcv
+24) oc logs echo-1-dpmcv | tail -n 3
+25) oc describe bc echo
+26) oc describe is echo
+27) oc describe dc echo
+28) vi ~/DO288-apps/ubi-echo/Dockerfile
+    28.1> CMD bash -c "while true; do (( i++ )); echo test \$i; sleep 5; done"
+29) cd ubi-echo
+30) git commit -a -m 'Add a counter'
+31) git push
+32) cd ~
+33) oc start-build echo
+34) oc logs -f bc/echo
+35) oc status
+36) oc get pod
+    36.1> echo-2-2dvzd
+37) oc logs echo-2-2dvzd | head -n 3
+38) oc describe is echo
+39) oc delete all -l app=echo
+40) oc get all
+41) lab docker-build finish
+
+/**************************************************/
+
+51) lab deploy-image start
+52) grep RHT_OCP4_WILDCARD_DOMAIN /usr/local/etc/ocp4.config
+53) source /usr/local/etc/ocp4.config
+54) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+55) oc get route -n openshift-console
+    55.1> https://console-openshift-console.apps.ocp-ap3.prod.nextcle.com
+    55.2> cat /usr/local/etc/ocp4.config
+    55.3> hello-garywang-tw.apps.ocp-ap3.prod.nextcle.com
+56) lab deploy-image finish
+
+/**************************************************/
+
+61) lab build-template start
+62) cd ~/DO288-apps
+    62.1> git checkout master
+    62.2> ls ~/DO288-apps/quotes
+    62.3> less ~/DO288-apps/quotes/get.php
+    62.4> less ~/DO288/labs/build-template/php-mysql-ephemeral.json
+63) source /usr/local/etc/ocp4.config
+64) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+65) oc get templates -n openshift | grep php | grep mysql
+66) oc new-project ${RHT_OCP4_DEV_USER}-common
+67) oc create -f ~/DO288/labs/build-template/php-mysql-ephemeral.json
+68) oc new-project ${RHT_OCP4_DEV_USER}-build-template
+69) oc describe template php-mysql-ephemeral -n ${RHT_OCP4_DEV_USER}-common
+70) cat ~/DO288/labs/build-template/create-app.sh
+71) ~/DO288/labs/build-template/create-app.sh
+72) oc logs -f bc/quotesapi
+73) oc get pod
+    73.1> quotesapi-1-qxc69
+    73.2> quotesdb-1-x42wh
+74) oc get route
+    74.1> curl -si http://quote-garywang-tw.apps.ocp-ap3.prod.nextcle.com/get.php
+75) oc describe svc quotesdb | grep Endpoints
+    75.1> 10.129.2.16:3306
+76) oc describe pod quotesdb-1-x42wh | grep IP
+    76.1> 10.129.2.16
+77) oc describe pod quotesdb-1-x42wh | grep -A 4 Environment
+78) oc describe pod quotesapi-1-qxc69 | grep -A 5 Environment
+79) oc rsh quotesapi-1-qxc69 bash -c 'echo > /dev/tcp/$DATABASE_SERVICE_NAME/3306 && echo OK || echo FAIL'
+80) oc logs quotesapi-1-qxc69
+81) oc cp ~/DO288/labs/build-template/quote.sql quotesdb-1-x42wh:/tmp/quote.sql
+82) oc rsh -t quotesdb-1-x42wh
+    82.1> mysql -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/quote.sql
+    82.2> exit
+83) curl -si http://quote-garywang-tw.apps.ocp-ap3.prod.nextcle.com/get.php
+84) cd
+    84.1> oc delete project ${RHT_OCP4_DEV_USER}-build-template
+    84.2> oc delete project ${RHT_OCP4_DEV_USER}-common
+85) lab build-template finish
+
+/**************************************************/
+
+91) lab source-build start
+92) source /usr/local/etc/ocp4.config
+93) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+94) oc new-project ${RHT_OCP4_DEV_USER}-source-build
+95) cd DO288-apps
+    95.1> git checkout master
+    95.2> git checkout -b source-build
+    95.3> git push -u origin source-build
+96) oc new-app --name greet --build-env npm_config_registry=http://${RHT_OCP4_NEXUS_SERVER}/repository/nodejs nodejs:10~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#source-build --context-dir nodejs-helloworld
+97) oc logs -f bc/greet
+98) python -m json.tool nodejs-helloworld/package.json
+    98.1> vi ~/DO288-apps/nodejs-helloworld/package.json
+99) cd nodejs-helloworld
+    99.1> git commit -a -m 'Fixed JSON syntax'
+    99.2> git push
+    99.3> cd
+100) oc start-build --follow bc/greet
+101) oc status
+102) oc get pod
+    102.1> greet-1-8gtk8
+103) oc logs greet-1-8gtk8
+104) oc expose svc/greet
+105) oc get route
+    105.1> curl http://greet-garywang-tw-source-build.apps.ocp-ap3.prod.nextcle.com
+106) lab source-build grade
+107) lab source-build finish
+
+
+

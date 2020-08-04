@@ -1,0 +1,127 @@
+1) lab manage-builds start
+2) cd DO288-apps
+    2.1> git checkout master
+    2.2> git checkout -b manage-builds
+    2.3> git push -u origin manage-builds
+3) cd ~/DO288-apps/java-serverhost/src/main/java/com/redhat/training/example/javaserverhost/rest
+    3.1> vi ServerHostEndPoint.java
+4) source /usr/local/etc/ocp4.config
+5) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+6) oc new-project ${RHT_OCP4_DEV_USER}-manage-builds
+7) oc new-app --name jhost --build-env MAVEN_MIRROR_URL=http://${RHT_OCP4_NEXUS_SERVER}/repository/java -i redhat-openjdk18-openshift:1.5 https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#manage-builds --context-dir java-serverhost
+8) oc logs -f bc/jhost
+9) oc get pods
+    9.1> jhost-1-28pzk
+10) oc expose svc/jhost
+11) oc get route
+    11.1> curl http://jhost-${RHT_OCP4_DEV_USER}-manage-builds.${RHT_OCP4_WILDCARD_DOMAIN}
+12) oc get bc
+    12.1> oc get builds
+13) cd ~/DO288-apps/java-serverhost
+    13.1> git commit -a -m 'Update the version'
+14) oc start-build bc/jhost
+    14.1> oc cancel-build bc/jhost
+    14.2> oc get builds
+    14.3> git push
+    14.4> cd ~
+15) oc start-build bc/jhost
+16) oc get builds
+17) oc logs -f build/jhost-3
+18) oc get pods
+    18.1> jhost-2-htlhp
+19) curl http://jhost-${RHT_OCP4_DEV_USER}-manage-builds.${RHT_OCP4_WILDCARD_DOMAIN}
+20) oc delete project ${RHT_OCP4_DEV_USER}-manage-builds
+21) lab manage-builds finish
+
+/**************************************************/
+
+31) lab trigger-builds start
+32) source /usr/local/etc/ocp4.config
+33) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+34) oc new-project ${RHT_OCP4_DEV_USER}-trigger-builds
+35) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+36) cd /home/student/DO288/labs/trigger-builds
+    36.1> skopeo copy docker-archive:php-70-rhel7-original.tar.gz docker://quay.io/${RHT_OCP4_QUAY_USER}/php-70-rhel7:latest
+    36.2> oc create secret generic quay-registry --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type kubernetes.io/dockerconfigjson
+    36.3> oc secrets link builder quay-registry
+    36.4> oc import-image php --from quay.io/${RHT_OCP4_QUAY_USER}/php-70-rhel7 --confirm
+37) oc new-app --name trigger php~http://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps --context-dir trigger-builds
+38) oc logs -f bc/trigger
+39) oc get pod
+    39.1> trigger-1-4h78n
+40) oc describe bc/trigger | grep Triggered
+41) skopeo copy docker-archive:php-70-rhel7-newer.tar.gz docker://quay.io/${RHT_OCP4_QUAY_USER}/php-70-rhel7:latest
+42) oc import-image php
+43) oc get builds
+    43.1> oc logs -f build/trigger-2
+44) oc describe build trigger-2 | grep cause
+45) cd ~
+    46.1> skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/php-70-rhel7
+46) lab trigger-builds finish
+
+/**************************************************/
+
+51) lab post-commit start
+52) source /usr/local/etc/ocp4.config
+53) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+54) oc project ${RHT_OCP4_DEV_USER}-post-commit
+55) oc status
+56) oc new-app --name hook php:7.0~http://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps --context-dir post-commit
+57) oc logs -f bc/hook
+58) oc get pods
+    58.1> builds-for-managers-1-tcb59
+    58.2> hook-1-b85j4
+59) cat ~/DO288/labs/post-commit/create-hook.sh
+60) ~/DO288/labs/post-commit/create-hook.sh
+61) oc describe bc/hook | grep Post
+62) oc start-build bc/hook -F
+    62.1> Failed (GenericBuildFailed)
+63) oc get builds
+64) oc set env bc/hook DEVELOPER="Gary ZC Wang"
+    64.1> oc set env bc/hook --list
+65) oc start-build bc/hook -F
+    65.1> HTTP/1.1 200 OK
+66) oc get route/builds-for-managers -o jsonpath='{.spec.host}{"\n"}'
+    66.1> http://builds-for-managers-garywang-tw-post-commit.apps.ocp-ap3.prod.nextcle.com
+67) oc delete project ${RHT_OCP4_DEV_USER}-post-commit
+68) lab post-commit finish
+
+/**************************************************/
+
+71) lab build-app start
+72) source /usr/local/etc/ocp4.config
+73) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+74) oc new-project ${RHT_OCP4_DEV_USER}-build-app
+75) cat ~/DO288/labs/build-app/oc-new-app.sh
+76) ~/DO288/labs/build-app/oc-new-app.sh
+77) oc logs -f bc/simple
+    77.1> Error
+78) oc set env bc simple --list
+    78.1> npm_config_registry=http://invalid-server:8081/repository/nodejs
+79) oc set env bc simple npm_config_registry=http://${RHT_OCP4_NEXUS_SERVER}/repository/nodejs
+80) oc set env bc simple --list
+    80.1> npm_config_registry=http://nexus-common.apps.ocp-ap3.prod.nextcle.com/repository/nodejs
+81) oc expose svc simple
+82) oc get route/simple -o jsonpath='{.spec.host}{"\n"}'
+    82.1> simple-garywang-tw-build-app.apps.ocp-ap3.prod.nextcle.com
+83) oc start-build simple -F
+84) oc get pods
+    84.1> simple-1-kmwlq
+85) curl http://simple-${RHT_OCP4_DEV_USER}-build-app.${RHT_OCP4_WILDCARD_DOMAIN}
+86) oc describe bc simple
+87) oc get bc simple -o jsonpath="{.spec.triggers[*].generic.secret}{'\n'}"
+    87.1> _PYw7pZQR7Gac-FGbM4E
+88) curl -X POST -k ${RHT_OCP4_MASTER_API}/apis/build.openshift.io/v1/namespaces/${RHT_OCP4_DEV_USER}-build-app/buildconfigs/simple/webhooks/_PYw7pZQR7Gac-FGbM4E/generic
+89) oc get builds
+90) oc logs -f bc/simple
+    90.1> oc logs -f build/simple-3
+91) oc get pods
+    91.1> simple-2-4d844
+92) lab build-app grade
+93) lab build-app finish
+
+
+
+
+
+

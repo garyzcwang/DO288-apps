@@ -1,0 +1,139 @@
+1) lab simple-pipeline start
+2) source /usr/local/etc/ocp4.config
+3) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+4) oc get templates -n openshift | grep jenkins
+5) oc new-project ${RHT_OCP4_DEV_USER}-ci-cd
+6) oc new-app jenkins-ephemeral -p MEMORY_LIMIT=2048Mi
+7) vi ~/DO288/labs/simple-pipeline/simple-pipeline.yaml
+8) cd DO288-apps
+    8.1> git checkout master
+    8.2> git checkout -b simple-pipeline
+    8.3> git push -u origin simple-pipeline
+9) vi ~/DO288-apps/simple-pipeline/Jenkinsfile
+    9.1> cd simple-pipeline
+    9.2> git commit -a -m "Completed Jenkinsfile"
+    9.3> git push
+    9.4> cd
+10) oc get pods
+    10.1> jenkins-1-mks72
+11) oc get route/jenkins -o jsonpath='{.spec.host}{"\n"}'
+    11.1> jenkins-garywang-tw-ci-cd.apps.ocp-ap3.prod.nextcle.com
+12) oc new-project ${RHT_OCP4_DEV_USER}-simple-pipeline
+13) oc policy add-role-to-user edit system:serviceaccount:${RHT_OCP4_DEV_USER}-ci-cd:jenkins -n ${RHT_OCP4_DEV_USER}-simple-pipeline
+14) oc create -f ~/DO288/labs/simple-pipeline/simple-pipeline.yaml
+    14.1> OpenShift web console
+15) oc start-build simple-pipeline
+16) oc delete project ${RHT_OCP4_DEV_USER}-simple-pipeline
+17) lab simple-pipeline finish
+
+/**************************************************/
+
+21) lab custom-pipeline start
+22) source /usr/local/etc/ocp4.config
+23) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+24) oc get pods -n ${RHT_OCP4_DEV_USER}-ci-cd
+    24.1> jenkins-1-mks72
+25) oc new-project ${RHT_OCP4_DEV_USER}-books-stage
+26) oc new-project ${RHT_OCP4_DEV_USER}-books-dev
+27) vi ~/DO288/labs/custom-pipeline/custom-pipeline-bc.json
+28) cd DO288-apps
+    28.1> git checkout master
+    28.2> git checkout -b custom-pipeline
+    28.3> git push -u origin custom-pipeline
+    28.4> vi ~/DO288-apps/books/jenkins/Jenkinsfile
+29) cd ~/DO288-apps/books
+    29.1> git commit -a -m "Completed Jenkinsfile for books microservice"
+    29.2> git push
+    29.3> cd
+30) oc get route/jenkins -n ${RHT_OCP4_DEV_USER}-ci-cd -o jsonpath='{.spec.host}{"\n"}'
+    30.1> jenkins-garywang-tw-ci-cd.apps.ocp-ap3.prod.nextcle.com
+31) oc project ${RHT_OCP4_DEV_USER}-books-dev
+32) oc policy add-role-to-user edit system:serviceaccount:${RHT_OCP4_DEV_USER}-ci-cd:jenkins -n ${RHT_OCP4_DEV_USER}-books-dev
+33) oc policy add-role-to-user edit system:serviceaccount:${RHT_OCP4_DEV_USER}-ci-cd:jenkins -n ${RHT_OCP4_DEV_USER}-books-stage
+34) oc create -f ~/DO288/labs/custom-pipeline/custom-pipeline-bc.json
+35) oc start-build custom-pipeline
+36) vi ~/DO288-apps/books/tests/app_test.js
+37) cd ~/DO288-apps/books
+    37.1> git commit -a -m "Fixed failed unit test."
+    37.2> git push
+    37.3> cd
+38) oc start-build custom-pipeline
+39) vi ~/DO288-apps/books/routes/authors.js
+40) cd ~/DO288-apps/books
+    40.1> git commit -a -m "Fixed linting errors."
+    40.2> git push
+    40.3> cd
+41) oc start-build custom-pipeline
+42) oc get pods -n ${RHT_OCP4_DEV_USER}-books-dev
+    42.1> books-1-vlbkj
+43) oc get pods -n ${RHT_OCP4_DEV_USER}-books-stage
+44) oc get route/books -n ${RHT_OCP4_DEV_USER}-books-dev -o jsonpath='{.spec.host}{"\n"}'
+    44.1> books-garywang-tw-books-dev.apps.ocp-ap3.prod.nextcle.com
+45) oc delete project ${RHT_OCP4_DEV_USER}-books-dev
+46) oc delete project ${RHT_OCP4_DEV_USER}-books-stage
+47) oc delete project ${RHT_OCP4_DEV_USER}-ci-cd
+48) lab custom-pipeline finish
+
+/**************************************************/
+
+51) lab review-cicd start
+52) source /usr/local/etc/ocp4.config
+53) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+54) oc new-project ${RHT_OCP4_DEV_USER}-jenkins
+    54.1> oc new-app jenkins-ephemeral -p MEMORY_LIMIT=2048Mi
+    54.2> watch oc get pods
+        54.2.1> jenkins-1-4w9k5
+    54.3> oc get route/jenkins -o jsonpath='{.spec.host}{"\n"}'
+        54.3.1> jenkins-garywang-tw-jenkins.apps.ocp-ap3.prod.nextcle.com
+        54.3.2> garywang-tw-movies-dev
+55) oc new-project ${RHT_OCP4_DEV_USER}-movies-stage
+56) oc new-project ${RHT_OCP4_DEV_USER}-movies-dev
+57) vi ~/DO288/labs/review-cicd/movies-bc.json
+58) cd DO288-apps
+    58.1> git checkout master
+    58.2> git checkout -b review-cicd
+    58.3> git push -u origin review-cicd
+59) vi ~/DO288-apps/movies/Jenkinsfile
+60) vi ~/DO288-apps/movies/settings.xml
+61) cd ~/DO288-apps/movies
+    61.1> git commit -a -m "Completed Jenkinsfile for movies microservice"
+    61.2> git push
+    61.3> cd
+62) oc project ${RHT_OCP4_DEV_USER}-movies-dev
+    62.1> oc policy add-role-to-user edit system:serviceaccount:${RHT_OCP4_DEV_USER}-jenkins:jenkins -n ${RHT_OCP4_DEV_USER}-movies-dev
+    62.2> oc policy add-role-to-user edit system:serviceaccount:${RHT_OCP4_DEV_USER}-jenkins:jenkins -n ${RHT_OCP4_DEV_USER}-movies-stage
+    62.3> oc create -f ~/DO288/labs/review-cicd/movies-bc.json
+    62.4> cat ~/DO288/labs/review-cicd/movies-bc.json | more
+63) vi ~/DO288-apps/movies/src/test/java/com/redhat/movies/MoviesApplicationTests.java
+64) cd ~/DO288-apps/movies
+    64.1> git commit -a -m "Fixed failed unit test."
+    64.2> git push
+    64.3> cd
+65) oc start-build movies-pipeline
+    65.1> movies-pipeline-2
+    65.2> Search "PMD Failure"
+66) vi ~/DO288-apps/movies/src/main/java/com/redhat/movies/MoviesController.java
+67) cd ~/DO288-apps/movies
+    67.1> git commit -a -m "Removed unused imports and variables."
+    67.2> git push
+    67.3> cd
+68) oc start-build movies-pipeline
+    68.1> movies-pipeline-3
+69) watch oc get pods -n ${RHT_OCP4_DEV_USER}-movies-dev
+    69.1> movies-1-w2pss
+70) oc get pods -n ${RHT_OCP4_DEV_USER}-movies-stage
+    70.1> None
+71) oc get route/movies -n ${RHT_OCP4_DEV_USER}-movies-dev -o jsonpath='{.spec.host}{"\n"}'
+    71.1> movies-garywang-tw-movies-dev.apps.ocp-ap3.prod.nextcle.com
+72) curl movies-${RHT_OCP4_DEV_USER}-movies-dev.${RHT_OCP4_WILDCARD_DOMAIN}/movies
+73) lab review-cicd grade
+    73.1> oc delete project ${RHT_OCP4_DEV_USER}-movies-dev
+    73.2> oc delete project ${RHT_OCP4_DEV_USER}-movies-stage
+    73.3> oc delete project ${RHT_OCP4_DEV_USER}-jenkins
+74) lab review-cicd finish
+
+
+
+
+
+

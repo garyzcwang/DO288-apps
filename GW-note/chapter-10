@@ -1,0 +1,139 @@
+1) lab review-dockerfile start
+2) cd DO288-apps
+    2.1> git checkout master
+    2.2> git checkout -b review-dockerfile
+    2.3> git push -u origin review-dockerfile
+3) vi ~/DO288-apps/todo-frontend/Dockerfile
+4) vi ~/DO288-apps/todo-frontend/Dockerfile
+5) cd todo-frontend
+    5.1> sudo podman build -t todo-frontend .
+    5.2> sudo podman run --name testfrontend -d -p 8080:8080 todo-frontend
+    5.3> curl -s localhost:8080 | grep h1
+    5.4> sudo podman stop testfrontend
+    5.5> sudo podman rm testfrontend
+    5.6> git commit -a -m 'Fixed for OpenShift'
+    5.7> git push
+    5.8> cd
+6) source /usr/local/etc/ocp4.config
+7) sudo podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+    7.1> sudo skopeo copy containers-storage:localhost/todo-frontend docker://quay.io/${RHT_OCP4_QUAY_USER}/todo-frontend
+8) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+9) oc new-project ${RHT_OCP4_DEV_USER}-review-common
+10) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+11) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type kubernetes.io/dockerconfigjson
+12) oc import-image todo-frontend --confirm --reference-policy local --from quay.io/${RHT_OCP4_QUAY_USER}/todo-frontend
+13) oc new-project ${RHT_OCP4_DEV_USER}-review-dockerfile
+14) oc policy add-role-to-group -n ${RHT_OCP4_DEV_USER}-review-common system:image-puller system:serviceaccounts:${RHT_OCP4_DEV_USER}-review-dockerfile
+15) oc new-app --name frontend -e BACKEND_HOST=api.example.com -i ${RHT_OCP4_DEV_USER}-review-common/todo-frontend
+16) oc get pod
+    16.1> frontend-1-7rzp7
+17) oc expose svc frontend
+18) oc get route
+    18.1> frontend-garywang-tw-review-dockerfile.apps.ocp-ap3.prod.nextcle.com
+19) curl -s http://frontend-${RHT_OCP4_DEV_USER}-review-dockerfile.${RHT_OCP4_WILDCARD_DOMAIN} | grep h1
+20) lab review-dockerfile grade
+21) lab review-dockerfile finish
+
+/**************************************************/
+
+31) lab review-service start
+32) source /usr/local/etc/ocp4.config
+33) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+34) oc new-project ${RHT_OCP4_DEV_USER}-review-service
+35) oc new-app --name tododb --docker-image registry.access.redhat.com/rhscl/mysql-57-rhel7 -e MYSQL_USER=todoapp -e MYSQL_PASSWORD=mypass -e MYSQL_DATABASE=todo
+    35.1> tododb-1-v2s5q
+    35.2> oc set triggers dc/tododb --from-config --remove
+36) oc create secret generic tododb --from-literal user=todoapp --from-literal password=mypass
+37) oc set env dc/tododb --prefix MYSQL_ --from secret/tododb
+38) oc set env dc/tododb --list
+39) oc rollout latest dc/tododb
+40) oc get pod
+    40.1> tododb-2-d7b7q
+41) oc rsh tododb-2-d7b7q env | grep MYSQL_
+42) cd DO288-apps
+    42.1> git checkout master
+    42.2> git checkout -b review-service
+    42.3> git push -u origin review-service
+43) mkdir -p ~/DO288-apps/todo-backend/.s2i/bin
+    43.1> cp ~/DO288/labs/review-service/lifecycle.sh ~/DO288-apps/todo-backend/.s2i/bin/assemble
+    43.2> oc describe istag nodejs:8 -n openshift | grep io.openshift.s2i.scripts-url
+    43.3> vi ~/DO288-apps/todo-backend/.s2i/bin/assemble
+44) cd ~/DO288-apps/todo-backend
+    44.1> git add .s2i
+    44.2> git commit -m 'Add custom assemble script'
+    44.3> git push
+    44.4> cd
+45) oc new-app --name backend --build-env npm_config_registry=http://${RHT_OCP4_NEXUS_SERVER}/repository/nodejs -e DATABASE_NAME=todo -e DATABASE_USER=todoapp -e DATABASE_PASSWORD=mypass -e DATABASE_SVC=tododb --context-dir todo-backend nodejs:8~https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps#review-service
+    45.1> oc logs -f bc/backend
+    45.2> watch oc get pod
+        45.2.1> tododb-2-d7b7q
+        45.2.2> backend-1-c62hv
+46) oc set triggers dc/backend --from-config --remove
+47) oc set env dc/backend --prefix DATABASE_ --from secret/tododb
+48) oc set env dc/backend --list
+49) oc create cm todoapp --from-literal init=true
+50) oc set env dc/backend  --prefix=DATABASE_ --from=cm/todoapp
+51) oc set env dc/backend --list
+52) oc rollout latest dc/backend
+53) watch oc get pod
+    53.1> backend-2-jrll2
+    53.2> tododb-2-d7b7q
+54) oc rsh backend-2-jrll2 env | grep DATABASE_
+55) oc expose svc backend
+56) oc get route
+    56.1> backend-garywang-tw-review-service.apps.ocp-ap3.prod.nextcle.com
+57) curl -si backend-${RHT_OCP4_DEV_USER}-review-service.${RHT_OCP4_WILDCARD_DOMAIN}/todo/api/items-count
+58) oc port-forward tododb-2-d7b7q 30306:3306
+59) mysqlshow -utodoapp -pmypass -h127.0.0.1 -P30306 todo
+60) lab review-service grade
+61) lab review-service finish
+
+/**************************************************/
+
+71) lab review-multicontainer start
+72) cp ~/DO288/labs/review-multicontainer/todoapp.yaml ~/todoapp.yaml
+    72.1> grep '^  kind:' ~/todoapp.yaml
+    72.2> oc process --parameters -f ~/todoapp.yaml
+73) source /usr/local/etc/ocp4.config
+74) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+75) oc get template nodejs-mongodb-example -n openshift -o yaml | less
+76) vi ~/todoapp.yaml
+77) oc project ${RHT_OCP4_DEV_USER}-review-common
+78) oc new-app --dry-run -f ~/todoapp.yaml -p PASSWORD=x -p HOSTNAME=y -p BACKEND=z
+79) oc create -f ~/todoapp.yaml
+80) oc process --parameters todoapp
+81) oc new-project ${RHT_OCP4_DEV_USER}-review-multicontainer
+82) oc policy add-role-to-group -n ${RHT_OCP4_DEV_USER}-review-common system:image-puller system:serviceaccounts:${RHT_OCP4_DEV_USER}-review-multicontainer
+83) oc new-app ${RHT_OCP4_DEV_USER}-review-common/todoapp -p PASSWORD=redhat -p CLEAN_DATABASE=false -p HOSTNAME=todoui-${RHT_OCP4_DEV_USER}.${RHT_OCP4_WILDCARD_DOMAIN} -p BACKEND=todoapi-${RHT_OCP4_DEV_USER}.${RHT_OCP4_WILDCARD_DOMAIN}
+    83.1> oc logs -f bc/backend
+    83.2> oc get pod
+        83.2.1> backend-1-9k96r
+        83.2.2> frontend-1-mpgsk
+        83.2.3> tododb-1-d22hf
+84) oc get route
+    84.1> todoapi-garywang-tw.apps.ocp-ap3.prod.nextcle.com
+85) curl -siw "\n" todoapi-${RHT_OCP4_DEV_USER}.${RHT_OCP4_WILDCARD_DOMAIN}/todo/api/items-count
+86) oc port-forward tododb-1-d22hf 30306:3306
+    86.1> mysql -h127.0.0.1 -P30306 -utodoapp -predhat todo < ~/DO288/labs/review-multicontainer/todo.sql
+    86.2> mysqlshow -utodoapp -predhat -h127.0.0.1 -P30306 todo
+87) oc get pod
+88) oc rollout latest dc/backend
+89) watch oc get pod
+    89.1> backend-3-n8hgc
+    89.2> curl -siw "\n" todoapi-${RHT_OCP4_DEV_USER}.${RHT_OCP4_WILDCARD_DOMAIN}/todo/api/items-count
+90) oc get route
+    90.1> todoui-garywang-tw.apps.ocp-ap3.prod.nextcle.com
+91) lab review-multicontainer grade
+92) lab review-multicontainer finish
+    92.1> lab review-multicontainer cleanup
+    92.2> lab review-service cleanup
+    92.3> lab review-dockerfile cleanup
+
+
+
+
+
+
+
+
+

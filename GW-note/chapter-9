@@ -1,0 +1,141 @@
+1) lab external-service start
+2) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+3) oc project ${RHT_OCP4_DEV_USER}-external-service
+4) oc status
+5) oc get pod
+    5.1> todoapp-1-whdmm
+6) oc rsh todoapp-1-whdmm env | grep DATABASE
+7) HOSTNAME=$(oc get route todoapp -o jsonpath='{.spec.host}')
+    7.1> echo ${HOSTNAME}
+8) curl -si http://${HOSTNAME}/todo/api/items/6
+9) echo ${RHT_OCP4_WILDCARD_DOMAIN}
+    9.1> echo ${RHT_OCP4_WILDCARD_DOMAIN} | sed 's/apps/mysql/'
+    9.2> mysql.ocp-ap3.prod.nextcle.com
+10) mysqlshow -hmysql.ocp-ap3.prod.nextcle.com -utodoapp -predhat123 todo
+11) oc create svc externalname tododb --external-name mysql.ocp-ap3.prod.nextcle.com
+12) oc get svc
+13) curl -si http://${HOSTNAME}/todo/api/items/6
+14) oc delete project ${RHT_OCP4_DEV_USER}-external-service
+15) lab external-service finish
+
+/**************************************************/
+
+21) lab nexus-service start
+22) cd ~/DO288-apps/nexus3
+    22.1> git checkout master
+    22.2> grep VOLUME Dockerfile
+    22.3> grep NEXUS_DATA Dockerfile
+    22.4> grep ENV Dockerfile
+23) source /usr/local/etc/ocp4.config
+24) sudo podman build -t nexus3 .
+25) sudo podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+26) sudo skopeo copy containers-storage:localhost/nexus3 docker://quay.io/${RHT_OCP4_QUAY_USER}/nexus3
+27) cp ~/DO288/labs/nexus-service/nexus-template.yaml ~/nexus-template.yaml
+    27.1> cd
+    27.2> grep -A1 "kind: DockerImage" ~/nexus-template.yaml 
+    27.3> grep -B1 -A5 limits: ~/nexus-template.yaml
+28) vi ~/nexus-template.yaml
+29) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+30) oc new-project ${RHT_OCP4_DEV_USER}-nexus-service
+31) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+32) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type kubernetes.io/dockerconfigjson
+33) oc secrets link default quayio --for pull
+34) oc new-app --name nexus3 -f ~/nexus-template.yaml -p HOSTNAME=nexus-${RHT_OCP4_DEV_USER}.${RHT_OCP4_WILDCARD_DOMAIN}
+    34.1> oc status
+35) oc get pods
+    35.1> nexus3-1-4c8sd
+36) oc logs -f nexus3-1-4c8sd
+37) oc get route
+    37.1> nexus-garywang-tw.apps.ocp-ap3.prod.nextcle.com
+38) oc delete project ${RHT_OCP4_DEV_USER}-nexus-service
+39) skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/nexus3
+40) lab nexus-service finish
+
+/**************************************************/
+
+51) lab micro-java start
+52) cd ~/DO288-apps/micro-java
+    52.1> git checkout master
+    52.2> git checkout -b micro-config
+    52.3> git push -u origin micro-config
+53) vi src/main/java/com/redhat/training/openshift/hello/JaxRsActivator.java
+54) vi src/main/java/com/redhat/training/openshift/hello/HelloResource.java
+55) vi pom.xml
+    55.1> mvn clean
+    55.2> mvn fabric8:resource
+    55.3> ls target/classes/META-INF/fabric8/openshift
+    55.4> cat target/classes/META-INF/fabric8/openshift/hello-deploymentconfig.yml
+    55.5> vi target/classes/META-INF/fabric8/openshift/hello-deploymentconfig.yml
+    55.6> vi target/classes/META-INF/fabric8/openshift/hello-service.yml
+    55.7> vi target/classes/META-INF/fabric8/openshift/hello-route.yml
+    55.8> vi target/classes/META-INF/fabric8/openshift.yml
+56) source /usr/local/etc/ocp4.config
+57) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+58) oc new-project ${RHT_OCP4_DEV_USER}-micro-java
+59) mvn fabric8:deploy
+60) oc status
+61) oc get pods
+    61.1> hello-1-g4s7g
+62) ROUTE_URL=$(oc get route hello --template='{{.spec.host}}')
+    62.1> echo ${ROUTE_URL}
+    62.2> hello-garywang-tw-micro-java.apps.ocp-ap3.prod.nextcle.com
+63) curl ${ROUTE_URL}/api/hello
+64) vi ~/DO288/labs/micro-java/cm.yml
+65) vi ~/DO288/labs/micro-java/deployment.yml
+66) cp -v ~/DO288/labs/micro-java/*.yml ./src/main/fabric8/
+67) ls ./src/main/fabric8/
+    67.1> git add src/main/fabric8/*.yml
+    67.2> git commit -am "Add YAML fragments."
+    67.3> git push
+68) mvn fabric8:deploy
+69) oc get cm/env-config
+70) oc get pods
+    70.1> hello-3-bh6lm
+71) curl ${ROUTE_URL}/api/hello
+72) oc delete project ${RHT_OCP4_DEV_USER}-micro-java
+73) lab micro-java finish
+
+/**************************************************/
+
+81) lab todo-migrate start
+82) source /usr/local/etc/ocp4.config
+83) MYSQL_DB=$(echo ${RHT_OCP4_WILDCARD_DOMAIN} | sed 's/apps/mysql/')
+    83.1> mysql -h${MYSQL_DB} -utodoapp -predhat123 todo
+    83.2> exit
+84) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+85) oc new-project ${RHT_OCP4_DEV_USER}-todo-migrate
+86) oc create service externalname tododb --external-name ${MYSQL_DB}
+87) oc get svc
+    87.1> mysql.ocp-ap3.prod.nextcle.com
+88) cd ~/DO288-apps
+    88.1> git checkout master
+    88.2> git checkout -b todo-migrate
+    88.3> git push -u origin todo-migrate
+    88.4> cd todo-api-micro
+    88.5> mvn fabric8:deploy
+    88.6> oc get pods
+        88.6.1> todo-api-1-cm2dm
+    88.7> oc logs -f todo-api-1-cm2dm
+89) vi src/main/fabric8/cm.yml
+90) vi src/main/fabric8/deployment.yml
+91) mvn fabric8:resource-apply
+92) oc describe dc/todo-api | grep -A1 "Environment Variables"
+93) oc get configmap
+94) oc get pods
+    94.1> todo-api-3-jrd7t
+95) oc logs -f todo-api-3-jrd7t
+96) ROUTE_URL=$(oc get route todo-api --template={{.spec.host}})
+    96.1> echo ${ROUTE_URL}
+    96.2> todo-api-garywang-tw-todo-migrate.apps.ocp-ap3.prod.nextcle.com
+97) curl -s ${ROUTE_URL}/todo/api/items/6 | python -m json.tool
+    97.1> git add src/main/fabric8/*
+    97.2> git commit -m "add YAML fragments"
+    97.3> git push origin todo-migrate
+98) lab todo-migrate grade
+99) lab todo-migrate finish
+
+
+
+
+
+

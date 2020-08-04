@@ -1,0 +1,107 @@
+1) lab external-registry start
+2) ls ~/DO288/labs/external-registry/ubi-sleep
+3) source /usr/local/etc/ocp4.config
+4) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+5) skopeo copy oci:/home/student/DO288/labs/external-registry/ubi-sleep docker://quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+    5.1> podman search quay.io/ubi-sleep
+    5.2> skopeo inspect docker://quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+6) sudo podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+7) sudo podman run -d --name sleep quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+8) sudo podman ps
+9) sudo podman logs sleep
+10) sudo podman stop sleep
+11) sudo podman rm sleep
+12) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+13) oc new-project ${RHT_OCP4_DEV_USER}-external-registry
+14) oc new-app --name sleep --docker-image quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+15) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type kubernetes.io/dockerconfigjson
+16) oc secrets link default quayio --for pull
+17) oc new-app --name sleep --docker-image quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+    17.1> oc logs dc/sleep
+18) oc get pod
+    18.1> sleep-1-pqzg6
+19) oc logs sleep-1-pqzg6
+20) oc delete project ${RHT_OCP4_DEV_USER}-external-registry
+21) skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/ubi-sleep:1.0
+22) lab external-registry finish
+
+/**************************************************/
+
+31) lab expose-registry start
+32) source /usr/local/etc/ocp4.config
+33) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+34) oc get route -n openshift-image-registry
+    34.1> default-route-openshift-image-registry.apps.ocp-ap3.prod.nextcle.com
+35) INTERNAL_REGISTRY=$( oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}' )
+    35.1> echo $INTERNAL_REGISTRY
+36) oc new-project ${RHT_OCP4_DEV_USER}-common
+37) TOKEN=$(oc whoami -t)
+    37.1> echo $TOKEN
+38) ls ~/DO288/labs/expose-registry/ubi-info
+39) skopeo copy --dest-creds=${RHT_OCP4_DEV_USER}:${TOKEN} oci:/home/student/DO288/labs/expose-registry/ubi-info docker://${INTERNAL_REGISTRY}/${RHT_OCP4_DEV_USER}-common/ubi-info:1.0
+40) oc get is
+41) sudo podman login -u ${RHT_OCP4_DEV_USER} -p ${TOKEN} ${INTERNAL_REGISTRY}
+42) sudo podman pull ${INTERNAL_REGISTRY}/${RHT_OCP4_DEV_USER}-common/ubi-info:1.0
+43) sudo podman run --name info ${INTERNAL_REGISTRY}/${RHT_OCP4_DEV_USER}-common/ubi-info:1.0
+44) oc delete is ubi-info
+45) oc delete project ${RHT_OCP4_DEV_USER}-common
+46) sudo podman rm info
+47) sudo podman rmi -f ${INTERNAL_REGISTRY}/${RHT_OCP4_DEV_USER}-common/ubi-info:1.0
+48) lab expose-registry finish
+
+/**************************************************/
+
+51) lab image-stream start
+52) source /usr/local/etc/ocp4.config
+53) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+54) oc new-project ${RHT_OCP4_DEV_USER}-common
+55) skopeo inspect docker://quay.io/redhattraining/hello-world-nginx
+56) oc import-image hello-world --confirm --from quay.io/redhattraining/hello-world-nginx
+57) oc get istag
+    57.1> oc get is
+    57.2> oc describe is hello-world
+58) oc new-project ${RHT_OCP4_DEV_USER}-image-stream
+    58.1> oc get projects
+59) oc new-app --name hello -i ${RHT_OCP4_DEV_USER}-common/hello-world
+60) oc get pod
+61) oc expose svc hello
+62) oc get route
+    62.1> curl http://hello-garywang-tw-image-stream.apps.ocp-ap3.prod.nextcle.com
+    62.2> curl http://hello-${RHT_OCP4_DEV_USER}-image-stream.${RHT_OCP4_WILDCARD_DOMAIN}
+63) oc delete project ${RHT_OCP4_DEV_USER}-image-stream
+64) oc delete project ${RHT_OCP4_DEV_USER}-common
+65) lab image-stream finish
+
+/**************************************************/
+
+71) lab expose-image start
+72) ls ~/DO288/labs/expose-image/php-info
+73) source /usr/local/etc/ocp4.config
+74) podman login -u ${RHT_OCP4_QUAY_USER} quay.io
+75) skopeo copy oci:/home/student/DO288/labs/expose-image/php-info docker://quay.io/${RHT_OCP4_QUAY_USER}/php-info
+76) skopeo inspect docker://quay.io/${RHT_OCP4_QUAY_USER}/php-info
+77) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+78) oc new-project ${RHT_OCP4_DEV_USER}-common
+79) oc create secret generic quayio --from-file .dockerconfigjson=${XDG_RUNTIME_DIR}/containers/auth.json --type kubernetes.io/dockerconfigjson
+80) oc import-image php-info --confirm --reference-policy local --from quay.io/${RHT_OCP4_QUAY_USER}/php-info
+81) oc get istag
+    81.1> oc get is
+82) oc new-project ${RHT_OCP4_DEV_USER}-expose-image
+    82.1> oc get projects
+83) oc policy add-role-to-group -n ${RHT_OCP4_DEV_USER}-common system:image-puller system:serviceaccounts:${RHT_OCP4_DEV_USER}-expose-image
+84) oc new-app --name info -i ${RHT_OCP4_DEV_USER}-common/php-info
+85) oc get pod
+    85.1> oc status
+    85.2> oc logs info-1-8hm2q
+86) oc expose svc info
+87) oc get route info
+    87.1> curl http://info-garywang-tw-expose-image.apps.ocp-ap3.prod.nextcle.com
+88) lab expose-image grade
+89) oc delete project ${RHT_OCP4_DEV_USER}-expose-image
+90) oc delete project ${RHT_OCP4_DEV_USER}-common
+91) skopeo delete docker://quay.io/${RHT_OCP4_QUAY_USER}/php-info:latest
+92) lab expose-image finish
+
+
+
+

@@ -1,0 +1,80 @@
+1) lab create-template start
+2) source /usr/local/etc/ocp4.config
+3) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+4) oc project ${RHT_OCP4_DEV_USER}-quotes-dev
+5) oc status
+6) oc get pvc
+7) oc get route/quotesapi -o jsonpath='{.spec.host}{"\n"}'
+    7.1> quotesapi-garywang-tw-quotes-dev.apps.ocp-ap3.prod.nextcle.com
+8) vi quotes-template-clean.yaml
+9) oc get -o yaml --export is > /tmp/is.yaml
+    9.1> cp /tmp/is.yaml /tmp/is-clean.yaml
+    9.2> vi /tmp/is-clean.yaml
+    9.3> vi ~/DO288/labs/create-template/is-clean.yaml
+10) oc get -o yaml --export bc > /tmp/bc.yaml
+    10.1> cp /tmp/bc.yaml /tmp/bc-clean.yaml
+    10.2> vi /tmp/bc-clean.yaml
+    10.3> vi ~/DO288/labs/create-template/bc-clean.yaml
+11) oc get -o yaml --export dc > /tmp/dc.yaml
+    11.1> cp /tmp/dc.yaml /tmp/dc-clean.yaml
+    11.2> vi /tmp/dc-clean.yaml
+    11.3> vi ~/DO288/labs/create-template/dc-clean.yaml
+12) oc get -o yaml --export svc > /tmp/svc.yaml
+    12.1> cp /tmp/svc.yaml /tmp/svc-clean.yaml
+    12.2> vi /tmp/svc-clean.yaml
+    12.3> vi ~/DO288/labs/create-template/svc-clean.yaml
+13) oc get -o yaml --export route > /tmp/route.yaml
+    13.1> cp /tmp/route.yaml /tmp/route-clean.yaml
+    13.2> vi /tmp/route-clean.yaml
+    13.3> vi ~/DO288/labs/create-template/route-clean.yaml
+14) oc get -o yaml --export pvc > /tmp/pvc.yaml
+    14.1> cp /tmp/pvc.yaml /tmp/pvc-clean.yaml
+    14.2> vi /tmp/pvc-clean.yaml
+    14.3> vi ~/DO288/labs/create-template/pvc-clean.yaml
+15) cat /tmp/is-clean.yaml >> ~/quotes-template-clean.yaml
+16) cat /tmp/bc-clean.yaml >> ~/quotes-template-clean.yaml
+17) cat /tmp/dc-clean.yaml >> ~/quotes-template-clean.yaml
+18) cat /tmp/svc-clean.yaml >> ~/quotes-template-clean.yaml
+19) cat /tmp/route-clean.yaml >> ~/quotes-template-clean.yaml
+20) cat /tmp/pvc-clean.yaml >> ~/quotes-template-clean.yaml
+21) cat ~/DO288/labs/create-template/parameters.yaml
+    21.1> cp ~/quotes-template-clean.yaml ~/quotes-template.yaml
+    21.2> vi quotes-template.yaml
+22) oc new-project ${RHT_OCP4_DEV_USER}-myquotes
+23) oc new-app --file=quotes-template.yaml -p APP_GIT_URL=https://github.com/${RHT_OCP4_GITHUB_USER}/DO288-apps -p PASSWORD=mypass
+24) oc get pod
+    24.1> quotesapi-1-6hb6b
+    24.2> quotesdb-1-hzwv5
+25) cat ~/DO288/labs/create-template/populate-db.sh
+26) ~/DO288/labs/create-template/populate-db.sh
+27) oc get route/quotesapi -o jsonpath='{.spec.host}{"\n"}'
+    27.1> quotesapi-garywang-tw-myquotes.apps.ocp-ap3.prod.nextcle.com
+28) curl quotesapi-${RHT_OCP4_DEV_USER}-myquotes.${RHT_OCP4_WILDCARD_DOMAIN}/get.php
+29) lab create-template finish
+
+/**************************************************/
+
+31) lab review-template start
+32) cp ~/DO288/labs/review-template/todo-template.yaml ~/todo-template.yaml
+    32.1> vi todo-template.yaml
+33) cp ~/DO288/labs/review-template/oc-new-app.sh ~/oc-new-app.sh
+    33.1> vi ~/oc-new-app.sh
+34) source /usr/local/etc/ocp4.config
+35) oc login -u ${RHT_OCP4_DEV_USER} -p ${RHT_OCP4_DEV_PASSWORD} ${RHT_OCP4_MASTER_API}
+36) oc new-project ${RHT_OCP4_DEV_USER}-review-template
+37) ~/oc-new-app.sh
+38) oc logs -f bc/todoapp
+39) oc get pod
+    39.1> tododb-1-w9fqt
+    39.2> todoapp-1-kffrc
+40) oc get route/todoapp -o jsonpath='{.spec.host}{"\n"}'
+    40.1> garywang-tw-todo.apps.ocp-ap3.prod.nextcle.com
+41) curl -siw "\n" http://${RHT_OCP4_DEV_USER}-todo.${RHT_OCP4_WILDCARD_DOMAIN}/todo/api/items-count
+42) lab review-template grade
+43) lab review-template finish
+
+
+
+
+
+
